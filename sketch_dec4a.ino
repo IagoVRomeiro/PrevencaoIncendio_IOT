@@ -4,8 +4,8 @@
 
 
 // Defina as credenciais da sua rede WiFi
-const char* ssid = "Ranii";
-const char* password = "vitoriaa";
+const char* ssid = "IAGOBLINK";
+const char* password = "34472063";
 
 // Defina os parâmetros do AWS IoT
 const char* mqtt_server = "a1l3w3pl2iig2-ats.iot.sa-east-1.amazonaws.com";
