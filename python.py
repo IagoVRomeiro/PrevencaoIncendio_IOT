@@ -5,13 +5,13 @@ import mysql.connector
 db = mysql.connector.connect(
     host="localhost",          # Endereço do servidor MySQL
     user="root",               # Usuário do MySQL
-    password="sua_senha",      # Senha do MySQL
+    password="34472063",      # Senha do MySQL
     database="sensores"        # Nome do banco de dados
 )
 cursor = db.cursor()
 
 # Função chamada ao conectar ao broker MQTT
-def conectar_broker(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc):
     print("Conectado ao broker MQTT")
     # Subscreve aos tópicos dos sensores
     client.subscribe("topico_sensor_temperatura")
@@ -19,7 +19,7 @@ def conectar_broker(client, userdata, flags, rc):
     client.subscribe("topico_sensor_chuva")
 
 # Função chamada ao receber mensagens
-def receber_mensagem(client, userdata, msg):
+def on_message(client, userdata, msg):
     print(f"Tópico: {msg.topic}, Mensagem: {msg.payload.decode()}")
     
     # Insere os dados no banco de dados
@@ -33,8 +33,8 @@ def receber_mensagem(client, userdata, msg):
 
 # Configuração do cliente MQTT
 client = mqtt.Client()
-client.on_connect = conectar_broker
-client.on_message = receber_mensagem
+client.on_connect = on_connect
+client.on_message = on_message
 
 # Conecta ao broker MQTT
 client.connect("test.mosquitto.org", 1883, 60)
