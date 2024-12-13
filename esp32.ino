@@ -1,3 +1,4 @@
+//Tudo esta funcionando 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -5,6 +6,11 @@
 
 #define LED_BUILTIN 2
 #define PIN_LED 2
+
+#define rele 5  // Pino GPIO para o relé
+#define sensor 4  // Pino GPIO para o sensor de solo
+bool irrigar = false;
+
 
 /* Definições para o MQTT */
 #define TOPICO_SUBSCRIBE_LED "topico_led"
@@ -14,11 +20,15 @@
 #define ID_MQTT "IoT_PUC_SG_mqtt"  // ID MQTT
 
 
-const char* SSID = "iago";      // Rede Wi-Fi
-const char* PASSWORD = "iago12345";  // Senha do Wi-Fi
+const char* SSID = "Ranii";      // Rede Wi-Fi
+const char* PASSWORD = "vitoriaa";  // Senha do Wi-Fi
 const char* BROKER_MQTT = "test.mosquitto.org";
 int BROKER_PORT = 1883;  // Porta do Broker MQTT
 
+//Sensor de fogo, buzzer e led
+const int fireSensorPin = 32;
+const int buzzerPin = 13;
+const int ledPin = 26;
 
 // Pinos dos sensores
 #define PIN_SENSOR_CHUVA 15    //sensor de chuva
@@ -128,7 +138,9 @@ void leUmidade(void) {
   MQTT.publish(TOPICO_PUBLISH_UMIDADE, umidade_str);
   Serial.print("Publicando umidade: ");
   Serial.println(umidade_str);
+
 }
+
 
 void leTemperatura(void) {
   float temperatura = tempSensor.getTempC(); 
@@ -141,14 +153,54 @@ void leTemperatura(void) {
   Serial.println(temperatura_str);
 }
 
+void verificaFogo() {
+  // Lê o valor do sensor de fogo
+  int fireDetected = digitalRead(fireSensorPin);
+
+  // Imprime o valor lido pelo sensor na porta serial
+  Serial.println(fireDetected);
+
+  if (fireDetected == LOW) {
+    // Quando o fogo for detectado
+    Serial.println("Ta pegando fogo bicho");
+    // Aciona o buzzer com bipes como sirene
+    for (int i = 0; i < 8; i++) {
+      digitalWrite(buzzerPin, HIGH);
+      delay(100);
+      digitalWrite(buzzerPin, LOW);
+      delay(100);
+      digitalWrite(ledPin, HIGH);
+      delay(100);
+      digitalWrite(ledPin, LOW);
+      delay(100);
+    }
+  } else {
+    // Quando não há fogo
+    Serial.println("Sem fogo bicho");
+    // Desliga o buzzer e o LED
+    digitalWrite(buzzerPin, LOW);
+    digitalWrite(ledPin, LOW);
+  }
+}
+
 void setup() {
   Serial.begin(9600); 
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_SENSOR_CHUVA, INPUT); 
 
+  // Define os pinos do sensor, buzzer e LED como entrada ou saída
+  pinMode(fireSensorPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
+
   reconnectWiFi(); // Conecta ao Wi-Fi
   initMQTT(); // Inicializa o MQTT
   reconnectMQTT(); // Conecta ao Broker MQTT
+
+  pinMode(rele, OUTPUT);
+  pinMode(sensor, INPUT); 
+  digitalWrite(rele, HIGH);
+  
 }
 
 void loop() {
@@ -159,6 +211,26 @@ void loop() {
   leTemperatura(); // Lê a temperatura
 
   MQTT.loop(); // Mantém a conexão MQTT viva
-  delay(2000); // Espera 2 segundos antes de repetir
+  //millis(); // Espera 2 segundos antes de repetir
+
+  verificaFogo();  // Chama a função para verificar o sensor de fogo
+  delay(500); 
+
+  irrigar = digitalRead(sensor);
+
+  // Verificar e controlar o relé
+  if (irrigar) {
+    // Baixa umidade: ligar o motor
+    digitalWrite(rele, LOW);  // Ativa o relé
+    Serial.println("Baixa Umidade: Motor Ligado");
+
+  } else {
+    // Alta umidade: desligar o motor
+    digitalWrite(rele, HIGH);  // Desativa o relé
+    Serial.println("Alta Umidade: Motor Desligado");
+  }
+
+  millis();
 }
+
 
