@@ -1,3 +1,4 @@
+
 //Tudo esta funcionando 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -17,11 +18,12 @@ bool irrigar = false;
 #define TOPICO_PUBLISH_TEMPERATURA "topico_sensor_temperatura"
 #define TOPICO_PUBLISH_UMIDADE "topico_sensor_umidade"
 #define TOPICO_PUBLISH_CHUVA "topico_sensor_chuva"
+#define TOPICO_PUBLISH_FOGO "topico_sensor_fogo"
 #define ID_MQTT "IoT_PUC_SG_mqtt"  // ID MQTT
 
 
-const char* SSID = "Ranii";      // Rede Wi-Fi
-const char* PASSWORD = "vitoriaa";  // Senha do Wi-Fi
+const char* SSID = "IAGOBLINK";      // Rede Wi-Fi
+const char* PASSWORD = "34472063";  // Senha do Wi-Fi
 const char* BROKER_MQTT = "test.mosquitto.org";
 int BROKER_PORT = 1883;  // Porta do Broker MQTT
 
@@ -141,7 +143,6 @@ void leUmidade(void) {
 
 }
 
-
 void leTemperatura(void) {
   float temperatura = tempSensor.getTempC(); 
 
@@ -163,6 +164,10 @@ void verificaFogo() {
   if (fireDetected == LOW) {
     // Quando o fogo for detectado
     Serial.println("Ta pegando fogo bicho");
+
+    // Publica "Fogo" no tópico MQTT
+    MQTT.publish(TOPICO_PUBLISH_FOGO, "Fogo");
+
     // Aciona o buzzer com bipes como sirene
     for (int i = 0; i < 8; i++) {
       digitalWrite(buzzerPin, HIGH);
@@ -177,6 +182,10 @@ void verificaFogo() {
   } else {
     // Quando não há fogo
     Serial.println("Sem fogo bicho");
+
+    // Publica "Sem Fogo" no tópico MQTT
+    MQTT.publish(TOPICO_PUBLISH_FOGO, "Sem Fogo");
+
     // Desliga o buzzer e o LED
     digitalWrite(buzzerPin, LOW);
     digitalWrite(ledPin, LOW);
