@@ -155,15 +155,26 @@ void leUmidade(void) {
 
 
 void leTemperatura(void) {
-  float temperatura = tempSensor.getTempC(); 
+  TempAndHumidity data = dht.getTempAndHumidity();
 
-  char temperatura_str[10];
-  sprintf(temperatura_str, "%.2f", temperatura); 
+  if (isnan(data.temperature) || isnan(data.humidity)) {
+    Serial.println("Falha ao ler do sensor DHT11!");
+    return;
+  }
 
-  MQTT.publish(TOPICO_PUBLISH_TEMPERATURA, temperatura_str);
-  Serial.print("Publicando temperatura: ");
-  Serial.println(temperatura_str);
+  Serial.print("Temperatura: ");
+  Serial.print(data.temperature);
+  Serial.println(" *C");
+
+  /*
+  Serial.print("Umidade do ar: ");
+  Serial.print(data.humidity);
+  Serial.println(" %");
+  */
+
+  delay(2000);  // Aguarde 2 segundos entre leituras
 }
+
 
 void verificaFogo() {
   // Lê o valor do sensor de fogo
