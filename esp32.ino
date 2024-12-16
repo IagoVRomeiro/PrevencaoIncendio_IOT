@@ -135,13 +135,24 @@ void verificaChuva(void) {
 void leUmidade(void) {
   int umidade = analogRead(PIN_SENSOR_UMIDADE); 
   char umidade_str[10];
-  sprintf(umidade_str, "%d", umidade); 
+  char estado[10];
 
-  MQTT.publish(TOPICO_PUBLISH_UMIDADE, umidade_str);
-  Serial.print("Publicando umidade: ");
-  Serial.println(umidade_str);
+  if (umidade < 300) { 
+    strcpy(estado, "molhado");
+  } else if (umidade < 700) {
+    strcpy(estado, "úmido");
+  } else {
+    strcpy(estado, "seco");
+  }
 
+  MQTT.publish(TOPICO_PUBLISH_UMIDADE, estado);
+
+  Serial.print("Umidade: ");
+  Serial.print(umidade);
+  Serial.print(" - Estado: ");
+  Serial.println(estado);
 }
+
 
 void leTemperatura(void) {
   float temperatura = tempSensor.getTempC(); 
