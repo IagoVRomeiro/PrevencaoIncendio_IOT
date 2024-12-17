@@ -6,29 +6,27 @@
 // Definições de pinos
 #define PIN_LED 2
 #define RELE 5            // Pino GPIO para o relé
-#define SENSOR_SOLO 4     // Pino GPIO para o sensor de solo
 #define SENSOR_CHUVA 15   // Sensor de chuva
-#define SENSOR_UMIDADE 36 // Sensor de umidade
-#define SENSOR_TEMPERATURA 18          // Sensor DHT11
-#define SENSOR_FOGO 32    // Sensor de fogo
+#define SENSOR_SOLO 36 // Sensor de umidade
+#define SENSOR_FOGO 14   // Sensor de fogo
 #define BUZZER 13         // Buzzer
 #define LED_FOGO 26       // LED indicador de fogo
 #define DHT_PIN 18        // Pino do sensor DHT11
 
 // Definições para o MQTT
 #define TOPICO_SUBSCRIBE_LED "topico_led"
-#define TOPICO_PUBLISH_TEMPERATURA_ESTADO "topico_sensor_temperatura_estado"
+#define TOPICO_PUBLISH_TEMPERATURA "topico_sensor_temperatura"
 #define TOPICO_PUBLISH_TEMPERATURA_VALOR "topico_sensor_temperatura_valor"
-#define TOPICO_PUBLISH_UMIDADE_ESTADO "topico_sensor_umidade_estado"
+#define TOPICO_PUBLISH_UMIDADE "topico_sensor_umidade"
 #define TOPICO_PUBLISH_UMIDADE_VALOR "topico_sensor_umidade_valor"
 #define TOPICO_PUBLISH_CHUVA "topico_sensor_chuva"
 #define TOPICO_PUBLISH_FOGO "topico_sensor_fogo"
 #define ID_MQTT "IoT_PUC_SG_mqtt"  // ID MQTT
 
 // Configurações da rede Wi-Fi
-const char* SSID = "IAGOBLINK";
-const char* PASSWORD = "34472063";
-const char* BROKER_MQTT = "test.mosquitto.org";
+const char* SSID = "Ranii";
+const char* PASSWORD = "vitoriaa";
+const char* BROKER_MQTT = "broker.emqx.io";
 int BROKER_PORT = 1883;
 
 // Variáveis globais
@@ -126,14 +124,16 @@ void verificaChuva() {
 }
 
 void leUmidade() {
-  int umidade = analogRead(SENSOR_UMIDADE);
+  int umidade = analogRead(SENSOR_SOLO);
   String estado;
 
-  if (umidade < 300) {
-    estado = "molhado";
-  } else if (umidade < 700) {
+  if (umidade < 3000) {
+    digitalWrite(RELE, HIGH);  // Desativa o relé (pausa a irrigação)
+    Serial.println("Rele desativado: irrigação pausada.");
     estado = "úmido";
   } else {
+     digitalWrite(RELE, LOW);  // Ativa o relé (liga a irrigação)
+    Serial.println("Rele ativado: irrigação iniciada.");
     estado = "seco";
   }
 
@@ -142,7 +142,7 @@ void leUmidade() {
   MQTT.publish(TOPICO_PUBLISH_UMIDADE_VALOR, valorUmidade.c_str());
 
   // Publica o estado da umidade
-  MQTT.publish(TOPICO_PUBLISH_UMIDADE_ESTADO, estado.c_str());
+  MQTT.publish(TOPICO_PUBLISH_UMIDADE, estado.c_str());
 
   Serial.printf("Umidade lida: %d (%s)\n", umidade, estado.c_str());
 }
@@ -175,7 +175,7 @@ void leTemperatura() {
     estado = "Quente";
   }
 
-  MQTT.publish(TOPICO_PUBLISH_TEMPERATURA_ESTADO, estado.c_str());
+  MQTT.publish(TOPICO_PUBLISH_TEMPERATURA, estado.c_str());
 
   Serial.printf("Temperatura publicada: %s °C (Estado: %s)\n", temp_str, estado.c_str());
 }
@@ -186,32 +186,31 @@ void verificaFogo() {
 
   if (fireDetected == LOW) {
     MQTT.publish(TOPICO_PUBLISH_FOGO, "Fogo");
-    Serial.println("Fogo detectado!");
+    Serial.println("TA PEGANDO FOGO BIXO!");
+      digitalWrite(RELE, LOW);  // Ativa o relé (liga a irrigação)
     for (int i = 0; i < 8; i++) {
       digitalWrite(BUZZER, HIGH);
-      digitalWrite(LED_FOGO, HIGH);
-      delay(100);
-      digitalWrite(BUZZER, LOW);
-      digitalWrite(LED_FOGO, LOW);
-      delay(100);
     }
   } else {
+   // digitalWrite(RELE, HIGH);
+   digitalWrite(BUZZER, LOW);
     MQTT.publish(TOPICO_PUBLISH_FOGO, "Sem Fogo");
-    Serial.println("ta pegando fogo bixo");
+    Serial.println("ta pegando SEM fogo");
   }
 }
 
 void controlaRele() {
-  irrigar = digitalRead(SENSOR_SOLO);
+  irrigar = digitalRead(SENSOR_SOLO);  // Lê o estado do sensor de solo
 
-  if (irrigar) {
-    digitalWrite(RELE, LOW);
+  if (irrigar == HIGH) {  // Se o solo estiver seco (HIGH)
+    digitalWrite(RELE, HIGH);  // Ativa o relé (liga a irrigação)
     Serial.println("Rele ativado: irrigação iniciada.");
-  } else {
-    digitalWrite(RELE, HIGH);
+  } else {  // Se o solo estiver úmido (LOW)
+    digitalWrite(RELE, LOW);  // Desativa o relé (pausa a irrigação)
     Serial.println("Rele desativado: irrigação pausada.");
   }
 }
+
 
 // Configuração inicial
 void setup() {
@@ -241,7 +240,7 @@ void loop() {
   leUmidade();
   leTemperatura();
   verificaFogo();
-  controlaRele();
+  
 
   MQTT.loop();
   delay(1000); // Ajusta a frequência de execução do loop

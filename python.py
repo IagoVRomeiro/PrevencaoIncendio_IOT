@@ -1,96 +1,116 @@
 import paho.mqtt.client as mqtt
 import mysql.connector
-import json
-from datetime import datetime
+import time
 
-# Configuração do banco de dados MySQL
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '34472063',
-    'database': 'sensores'
-}
+# Definições dos tópicos
+TOPICO_PUBLISH_TEMPERATURA = "topico_sensor_temperatura"
+TOPICO_PUBLISH_TEMPERATURA_VALOR = "topico_sensor_temperatura_valor"
+TOPICO_PUBLISH_UMIDADE = "topico_sensor_umidade"
+TOPICO_PUBLISH_UMIDADE_VALOR = "topico_sensor_umidade_valor"
+TOPICO_PUBLISH_CHUVA = "topico_sensor_chuva"
+TOPICO_PUBLISH_FOGO = "topico_sensor_fogo"
 
-# Configuração do MQTT
-BROKER = "test.mosquitto.org"
-PORT = 1883
-TOPICS = [
-    "topico_sensor_chuva", 
-    "topico_sensor_fogo", 
-    "topico_sensor_temperatura_estado", 
-    "topico_sensor_temperatura_valor",
-    "topico_sensor_umidade_estado",
-    "topico_sensor_umidade_valor"
-]
+# Configurações do Broker MQTT
+BROKER_MQTT = "broker.emqx.io"
+PORTA_MQTT = 1883
 
-# Conectando ao banco de dados MySQL
-def connect_db():
-    return mysql.connector.connect(
-        host=db_config['host'],
-        user=db_config['user'],
-        password=db_config['password'],
-        database=db_config['database']
-    )
+# Configurações do banco de dados MySQL
+DB_HOST = "localhost"
+DB_USER = "root"  # Substitua pelo nome de usuário do seu banco de dados
+DB_PASSWORD = "34472063"  # Substitua pela senha do seu banco de dados
+DB_NAME = "sensores"  # Substitua pelo nome do seu banco de dados
 
-# Função de callback quando uma mensagem é recebida
-def on_message(client, userdata, msg):
-    try:
-        # Parseando a mensagem
-        message = msg.payload.decode('utf-8')
-        topic = msg.topic
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+# Variáveis para armazenar os dados recebidos
+temperatura = None
+umidade = None
+chuva = None
+fogo = None
 
-        # Preparando os dados para inserir na tabela
-        data = {
-            "fogo": "Fogo" if "Fogo" in message else "Sem Fogo",
-            "chuva_estado": "Chuva" if "Chuva" in message else "Sem Chuva",
-            "chuva_valor": 0,  # Defina o valor correto se disponível
-            "temperatura_estado": message if "Frio" in message or "Agradável" in message or "Quente" in message else "Aguardando",
-            "temperatura_valor": float(message.split()[1]) if "Temperatura" in message else 0.0,
-            "data_hora": timestamp
-        }
+# Função callback para quando a mensagem for recebida
+def on_message(client, userdata, message):
+    global temperatura, umidade, chuva, fogo
 
-        # Conectando ao banco de dados e inserindo os dados
-        db = connect_db()
-        cursor = db.cursor()
+    # Decodifica a mensagem recebida
+    payload = message.payload.decode()
+    topic = message.topic
 
-        # Inserção no banco de dados
-        sql = """
-            INSERT INTO dados_sensores (fogo, data_hora, chuva_estado, chuva_valor, temperatura_estado, temperatura_valor)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        values = (
-            data["fogo"],
-            data["data_hora"],
-            data["chuva_estado"],
-            data["chuva_valor"],
-            data["temperatura_estado"],
-            data["temperatura_valor"]
-        )
+    # Log para verificar se a mensagem está sendo recebida
+    print(f"Mensagem recebida no tópico '{topic}': {payload}")
 
-        cursor.execute(sql, values)
-        db.commit()
+    # Armazena os dados dos tópicos
+    if topic == TOPICO_PUBLISH_TEMPERATURA_VALOR:
+        temperatura = float(payload)
+    elif topic == TOPICO_PUBLISH_UMIDADE_VALOR:
+        umidade = int(payload)
+    elif topic == TOPICO_PUBLISH_CHUVA:
+        chuva = payload
+    elif topic == TOPICO_PUBLISH_FOGO:
+        fogo = payload
 
-        cursor.close()
-        db.close()
-        print(f"Dados inseridos: {data}")
-    except Exception as e:
-        print(f"Erro ao processar a mensagem: {e}")
+    # Chama a função para inserir os dados no banco de dados sempre que uma nova mensagem é recebida
+    inserir_dados_no_mysql()
 
-# Conectando-se ao MQTT
+# Função para configurar a conexão MQTT
 def on_connect(client, userdata, flags, rc):
-    print("Conectado ao broker MQTT com código de resultado " + str(rc))
-    for topic in TOPICS:
-        client.subscribe(topic)
-    print(f"Inscrito nos tópicos: {TOPICS}")
+    print(f"Conectado ao broker MQTT com código {rc}")
+    
+    # Inscreve-se nos tópicos de interesse
+    client.subscribe(TOPICO_PUBLISH_TEMPERATURA_VALOR)
+    client.subscribe(TOPICO_PUBLISH_UMIDADE_VALOR)
+    client.subscribe(TOPICO_PUBLISH_CHUVA)
+    client.subscribe(TOPICO_PUBLISH_FOGO)
 
-# Configuração do cliente MQTT
-client = mqtt.Client()
+# Função para inserir os dados no banco de dados MySQL
+def inserir_dados_no_mysql():
+    if temperatura is not None and umidade is not None and chuva is not None and fogo is not None:
+        try:
+            # Conectando ao banco de dados MySQL
+            db = mysql.connector.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                database=DB_NAME
+            )
+            cursor = db.cursor()
+
+            # Inserindo os dados na tabela 'dados_sensores'
+            query = """
+                INSERT INTO dados_sensores (temperatura_valor, umidade_valor, chuva, fogo)
+                VALUES (%s, %s, %s, %s)
+            """
+            values = (temperatura, umidade, chuva, fogo)
+            cursor.execute(query, values)
+
+            # Confirmando a inserção
+            db.commit()
+         
+            # Fechando a conexão
+            cursor.close()
+            db.close()
+        except mysql.connector.Error as err:
+            print(f"Erro ao inserir dados no MySQL: {err}")
+
+# Criação do cliente MQTT
+client = mqtt.Client()  # Sem o ID especificado
 client.on_connect = on_connect
 client.on_message = on_message
 
-# Conectando ao broker MQTT
-client.connect(BROKER, PORT, 60)
+# Conectar-se ao broker MQTT
+client.connect(BROKER_MQTT, PORTA_MQTT, 60)
 
-# Loop MQTT para receber mensagens
-client.loop_forever()
+# Loop principal para processar mensagens de MQTT em tempo real
+try:
+    while True:
+        client.loop()  # Processa as mensagens recebidas continuamente
+
+        # Log para verificar o estado das variáveis
+        print(f"Temperatura: {temperatura}, Umidade: {umidade}, Chuva: {chuva}, Fogo: {fogo}")
+
+        # Aguarda um momento, mas sem bloquear o loop
+        time.sleep(0.1)  # Pequeno atraso para permitir o processamento do loop
+
+except KeyboardInterrupt:
+    print("Programa interrompido pelo usuário.")
+
+finally:
+    client.disconnect()  # Desconecta do broker MQTT ao finalizar
