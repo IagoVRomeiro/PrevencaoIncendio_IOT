@@ -24,8 +24,8 @@
 #define ID_MQTT "IoT_PUC_SG_mqtt"  // ID MQTT
 
 // Configurações da rede Wi-Fi
-const char* SSID = "Ranii";
-const char* PASSWORD = "vitoriaa";
+const char* SSID = "";
+const char* PASSWORD = "";
 const char* BROKER_MQTT = "broker.emqx.io";
 int BROKER_PORT = 1883;
 
